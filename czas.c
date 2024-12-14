@@ -40,7 +40,7 @@ key_t kluczsem1;
 int semidC;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 10;
+int jednostka = 5;
 time_t czas_start;
 int czas_pracy;
 
@@ -57,7 +57,7 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semidC = semget(kluczsem1, 16, IPC_CREAT | 0600);
+    semidC = semget(kluczsem1, 17, IPC_CREAT | 0600);
     if(semidC == -1){
         printf("Nie udalo sie dolaczyc Czasu do zbioru semaforow!\n");
         exit(EXIT_FAILURE);

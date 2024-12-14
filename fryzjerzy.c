@@ -8,6 +8,9 @@
 #include <time.h> //czas
 #include <signal.h> //sygnal
 #include <sys/shm.h> //pamiec wspoldzielona
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h> //stworznie fifo
 
 //semidF 0 - zaznacza ze fryzjer jest gotowy do pracy w procesach fryzjera, proces rodzica czeka az wszyscy beda gotowi
 //semidF 1 - Po zaznaczeniu swojej gotowosci, fryzjerzy czekaja na zmiane wartosci semafora na liczbe pracownikow
@@ -48,12 +51,14 @@ key_t kluczsem1;
 int semidF;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 10;
+int jednostka = 5;
 time_t czas_start;
 int czas_pracy;
-
+char *fifo_path = "fryzjerzy_fifo";
+int fd;
 int koniec = 0;
 int zajety = 0;
+
 void handle_koniec_salonu(int sig){
     printf("[F%d] Dostalismy syngnal ze salon skonczyl prace\n", getpid()%100);
     if(zajety==0){
@@ -72,6 +77,7 @@ int main(){
     signal(SIGUSR1, &pusty_handler);
     pid_t OriginPID = getpid();
     printf("[F] Wlaczono program fryzjerzy o PID: %d\n", OriginPID);
+    
     sleep(2);
     setpgid(0, 0); // Proces macierzysty zostaje liderem grupy procesów
 
@@ -81,12 +87,18 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semidF = semget(kluczsem1, 16, IPC_CREAT | 0600);
+    semidF = semget(kluczsem1, 17, IPC_CREAT | 0600);
     if(semidF == -1){
         printf("Nie udalo sie dolaczyc Fryzjerow do zbioru semaforow!\n");
         exit(EXIT_FAILURE);
     }
 
+    printf("Tworze plik fifo\n");
+    if (mkfifo(fifo_path, 0600) == -1 && errno != EEXIST) {
+        perror("[Kierownik] Nie udało się stworzyć FIFO");
+        return 1;
+    }
+    semafor_v(semidF, 16); //Podnosze semafor do otwarcia pliku fifo
 
     //Wysylamy id grupy do pamieci wspoldzielonej
     przygotuj_pamiec();
@@ -124,11 +136,24 @@ int main(){
             signal(SIGUSR1, &handle_koniec_salonu);
             pid_t FryzjerPID = getpid();
             printf("[F%d] Stworzono fryzjera - PID: %d, PPID: %d GRUPA: %d\n", FryzjerPID%100, getpid(), getppid(), getpgrp());
-            semidF = semget(kluczsem1, 16, IPC_CREAT | 0600);
+            semidF = semget(kluczsem1, 17, IPC_CREAT | 0600);
             if(semidF == -1){
                 printf("Nie udalo sie dolaczyc fryzjera do zbioru semaforow!\n");
                 exit(EXIT_FAILURE);
             }
+            semafor_p(semidF, 16);
+            printf("Otwieram plik FIFO\n");
+            fd = open("fryzjerzy_fifo", O_RDWR);
+            if (fd == -1) {
+                perror("[F] Nie udało się otworzyć FIFO");
+                return 1;
+            }
+            if (dprintf(fd, "%d\n", getpid()) < 0) {
+                perror("[F] Nie udało się wysłać PID do FIFO");
+            }
+            close(fd);
+            printf("[F%d] Zamykam plik FIFO\n", getpid() % 100);
+            semafor_v(semidF, 16);
 
             semafor_v(semidF, 0); //Zaznacza ze fryzjer jest gotowy do pracy
             semafor_p(semidF, 1);

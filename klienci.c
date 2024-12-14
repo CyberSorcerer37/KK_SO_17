@@ -8,6 +8,8 @@
 #include <time.h> //czas
 #include <signal.h> //sygnal
 #include <sys/shm.h> //pamiec wspoldzielona
+#include <errno.h>
+#include <fcntl.h>
 
 //semidF 0 - zaznacza ze fryzjer jest gotowy do pracy w procach fryzjera, proces rodzica czeka az wszyscy beda gotowi
 //semidF 1 - Po zaznaczeniu swojej gotowosci, fryzjerzy czekaja na zmiane wartosci semafora na liczbe pracownikow
@@ -39,11 +41,12 @@ key_t kluczsem1;
 int semidK;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 10;
+int jednostka = 5;
 time_t czas_start;
 int czas_pracy;
 int koniec = 0;
 int zajety = 0;
+
 
 void handle_koniec_salonu(int sig){
     
@@ -56,14 +59,13 @@ void handle_koniec_salonu(int sig){
 int main(){
     signal(SIGUSR1, &handle_koniec_salonu);
     setpgid(0, 0); // Proces macierzysty zostaje liderem grupy procesów
-
     kluczsem1 = ftok("/home/inf1s-23z/kasperczyk.krzysztof.152683/p17", 11);
     if(kluczsem1 == -1){
         printf("Nie udalo sie stworzyc klucza dla pierwszego zbioru semaforow!\n");
         exit(EXIT_FAILURE);
     }
 
-    semidK = semget(kluczsem1, 16, IPC_CREAT | 0600);
+    semidK = semget(kluczsem1, 17, IPC_CREAT | 0600);
     if(semidK == -1){
         printf("Nie udalo sie dolaczyc Klientow do zbioru semaforow!\n");
         exit(EXIT_FAILURE);
