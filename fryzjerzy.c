@@ -18,6 +18,13 @@
 //semidF 6 - semafor liczby fryzjerow gotowych do pracy - info dla klientow
 //semidF 7 - semafor pamieci wspoldzielonej
 //semidF 8 - semafor
+//semidF 10 - zlicza klientow, jak wchodzi +1, jak wychodzi -1, jak 0 = program klientow sie konczy
+//semidF 11 - semafor ustawiajacy wartosc na liczbe klientow
+//semidF 12 - sygnalizuje czasowi ze klienci tez sa gotowi
+//semidF 13 - Oczekiwanie az wszyscy klienci wyjda, zamkniecie salonu
+//semidF 14 - klienci sie koncza gdy napewno czas sie zakonczy
+//semid 15 - semafor wypuszczajacy fryzjerow jak klienci wyszlo
+
 void semafor_p(int semid, int semnum);
 void semafor_v(int semid, int semnum);
 void semafor_pe(int semid, int semnum);
@@ -41,7 +48,7 @@ key_t kluczsem1;
 int semidF;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 1;
+int jednostka = 10;
 time_t czas_start;
 int czas_pracy;
 
@@ -50,14 +57,19 @@ int zajety = 0;
 void handle_koniec_salonu(int sig){
     printf("[F%d] Dostalismy syngnal ze salon skonczyl prace\n", getpid()%100);
     if(zajety==0){
+        semafor_p(semidF, 15);
         printf("[F%d] Wyszedlem z salonu dzieki zmiennej zajety\n", getpid()%100); 
         exit(0); 
     }
     koniec=1;
 }
 
+void pusty_handler(int sig) {
+    
+}
 
 int main(){
+    signal(SIGUSR1, &pusty_handler);
     pid_t OriginPID = getpid();
     printf("[F] Wlaczono program fryzjerzy o PID: %d\n", OriginPID);
     sleep(2);
@@ -69,7 +81,7 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semidF = semget(kluczsem1, 10, IPC_CREAT | 0600);
+    semidF = semget(kluczsem1, 16, IPC_CREAT | 0600);
     if(semidF == -1){
         printf("Nie udalo sie dolaczyc Fryzjerow do zbioru semaforow!\n");
         exit(EXIT_FAILURE);
@@ -112,7 +124,7 @@ int main(){
             signal(SIGUSR1, &handle_koniec_salonu);
             pid_t FryzjerPID = getpid();
             printf("[F%d] Stworzono fryzjera - PID: %d, PPID: %d GRUPA: %d\n", FryzjerPID%100, getpid(), getppid(), getpgrp());
-            semidF = semget(kluczsem1, 10, IPC_CREAT | 0600);
+            semidF = semget(kluczsem1, 16, IPC_CREAT | 0600);
             if(semidF == -1){
                 printf("Nie udalo sie dolaczyc fryzjera do zbioru semaforow!\n");
                 exit(EXIT_FAILURE);
@@ -131,11 +143,12 @@ int main(){
                 semafor_p(semidF, 4);
                 zajety=1;
                 printf("[F%d] Wzialem klienta z poczekalni\n", FryzjerPID%100);
-                sleep(10);
+                sleep(2);
                 semafor_v(semidF, 2);
                 zajety=0;
                 printf("[F%d] Zwolnilem fotel...\n", FryzjerPID%100);
             }
+            semafor_p(semidF, 15);
             printf("[F%d] Wyszedlem z salonu dzieki zmiennej koniec\n", getpid()%100);
             exit(0);
         }
@@ -172,7 +185,6 @@ int main(){
     } 
     printf("[F] Salon jest gotowy!\n");
     for(i=0; i<F ; i++){
-        printf("Czekam na potomka az sie zakonczy\n");
         pid_t KoniecFryzjerPID = wait(NULL);
         if(KoniecFryzjerPID == -1){
             printf("[F] %d fryzjer nie zakonczyl swojej pracy!\n", i+1);
@@ -182,8 +194,9 @@ int main(){
             printf("[F] %d fryzjer zakonczyl swoja prace\n", i+1);
         }
     }
-    sleep(1);
-    printf("[F] Wszycy fryzjerzy zakonczyli prace!\n");
+    semafor_p(semidF, 13); // Salon sie zamyka gdy wszyscy klienci wyjda
+    printf("[F] Zamkniecie salonu!\n");
+    shmctl(pamiec, IPC_RMID, NULL);
     return 0;
     
 }

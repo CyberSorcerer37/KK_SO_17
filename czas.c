@@ -40,7 +40,7 @@ key_t kluczsem1;
 int semidC;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 1;
+int jednostka = 10;
 time_t czas_start;
 int czas_pracy;
 
@@ -57,7 +57,7 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semidC = semget(kluczsem1, 10, IPC_CREAT | 0600);
+    semidC = semget(kluczsem1, 16, IPC_CREAT | 0600);
     if(semidC == -1){
         printf("Nie udalo sie dolaczyc Czasu do zbioru semaforow!\n");
         exit(EXIT_FAILURE);
@@ -74,8 +74,9 @@ int main(){
     shmdt(shared);
     semafor_v(semidC, 8);
 
-    printf("[C] Oczekuje na otwarcie salonu\n");
+    printf("[C] Oczekuje na otwarcie salonu istnienie klientow\n");
     semafor_p(semidC, 3);
+    semafor_p(semidC, 12);
     printf("[C] Czas zaczyna plynac!\n");
     czas_pracy = (Tk-Tp)*jednostka; //ustala czas pracy
     czas_start = time(NULL);
@@ -85,13 +86,7 @@ int main(){
     printf("[C] Czas sie zakonczyl! wysylam sygnal do niepracujacych fryzjerow i klientow ktorzy nie sa teraz obslugiwani czyli do\n");
     kill(-grupaF, SIGUSR1);
     kill(-grupaK, SIGUSR1);
-    shmctl(pamiec, IPC_RMID, NULL);
-    /*for(int i = 0; i<10;i++){
-        if (semctl(semidC, i, IPC_RMID) == -1) {
-            perror("semctl IPC_RMID");
-            exit(EXIT_FAILURE);
-        }
-    }*/
+    semafor_v(semidC, 14);
     return 0;
 }
 

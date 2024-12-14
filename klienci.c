@@ -32,21 +32,25 @@ void przygotuj_pamiec();
 
 
 int F = 5;
+int K = 50;
 int N = 4;
 int P = 5; //liczba miejsc w poczekalni
 key_t kluczsem1;
 int semidK;
 int Tp = 8;
 int Tk = 10;
-int jednostka = 1;
+int jednostka = 10;
 time_t czas_start;
 int czas_pracy;
 int koniec = 0;
 int zajety = 0;
 
 void handle_koniec_salonu(int sig){
-    printf("[K] Dostalismy syngnal ze salon skonczyl prace\n");
-    if(zajety==0){exit(EXIT_SUCCESS);}
+    
+    if(zajety==0){
+        printf("[K%d] Dostalem syngnal ze salon skonczyl prace, wychodze bo nie bylem obslugiwany\n", getpid()%1000);
+        exit(EXIT_SUCCESS);
+    }
     koniec=1;
 }
 int main(){
@@ -59,7 +63,7 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semidK = semget(kluczsem1, 10, IPC_CREAT | 0600);
+    semidK = semget(kluczsem1, 16, IPC_CREAT | 0600);
     if(semidK == -1){
         printf("Nie udalo sie dolaczyc Klientow do zbioru semaforow!\n");
         exit(EXIT_FAILURE);
@@ -84,37 +88,64 @@ int main(){
     printf("[K] Salon sie otworzyl!\n");
 
     int los = 2;
-    czas_pracy = (Tk-Tp)*jednostka; //ustala czas pracy
-    czas_start = time(NULL);
-    while(1){
+    zajety=1;
+    int i;
+    for(i=0;i<K;i++){
         pid_t ForkingPID = fork();
         if(ForkingPID == 0){
             signal(SIGUSR1, &handle_koniec_salonu);
             printf("[K%d] Stworzono klienta - PID: %d, PPID: %d\n",getpid()%1000, getpid(), getppid());
-            printf("[K%d] Sprawdzam czy jest dla mnie miejsce w poczekalni\n", getpid()%1000);
-            while(semafor_pe(semidK, 5)==-1){
-                printf("[K%d] Nie ma dla mnie miejsca w poczekalni, wychodze\n", getpid()%1000);
-                exit(EXIT_SUCCESS);
+            semafor_v(semidK, 10); //zaznacza ze klient jest gotowy
+            semafor_p(semidK, 11); //czeka az glowny program bedzie gotowyjobs
+            while(1+ rand () % (50 - 1+1)!=50){
+                sleep(1);
             }
-            printf("[K%d] Siadam w poczekalni\n", getpid()%1000);
-            semafor_p(semidK, 6);
-            semafor_v(semidK, 4);
-            semafor_v(semidK, 5);
-            zajety=1;
-            printf("[K%d] Fryzjer zabiera mnie na strzyzenie\n", getpid()%1000);
-            sleep(10);
-            printf("[K%d] Wychodze z salonu\n", getpid()%1000);
-            semafor_v(semidK, 5);
+            while(koniec == 0){
+                printf("[K%d] Sprawdzam czy jest dla mnie miejsce w poczekalni\n", getpid()%1000);
+                while(semafor_pe(semidK, 5)==-1){
+                    printf("[K%d] Nie ma dla mnie miejsca w poczekalni, wychodze\n", getpid()%1000);
+                    exit(EXIT_SUCCESS);
+                }
+                printf("[K%d] Siadam w poczekalni\n", getpid()%1000);
+                semafor_p(semidK, 6);
+                semafor_v(semidK, 4);
+                semafor_v(semidK, 5);
+                zajety=1;
+                printf("[K%d] Fryzjer zabiera mnie na strzyzenie\n", getpid()%1000);
+                sleep(2);
+                semafor_v(semidK, 5);
+                zajety=0;
+                printf("[K%d] Wychodze z salonu\n", getpid()%1000);
+                sleep(1 + rand() % (3 -1 +1));
+            }
+            printf("[K%d] Dostalem syngnal ze salon skonczyl prace, wychodze po zakonczonym strzyzeniu\n", getpid()%1000);
             exit(EXIT_SUCCESS);
-
-        }
-        los = 1 + rand() % (2 -1 +1);
-        while(los!=2){
-            los = 1 + rand() % (2 -1 +1);
-            sleep(1);
         }
     }
+    for(i=0;i<K;i++){
+        semafor_p(semidK, 10);
+    }
+    printf("Klienci sa gotowi\n");
+    semafor_v(semidK, 12); //sygnalizuje czasowi ze klienci tez sa gotowi
+    if(semctl(semidK, 11, SETVAL, K) == -1){
+        printf("Nie udalo sie zmienic wartosci semafora 11 na 50\n");
+        exit(EXIT_FAILURE);
+    }
 
+    for(i=0; i<K ; i++){
+        pid_t KoniecKlientaPID = wait(NULL);
+        if(KoniecKlientaPID == -1){
+            printf("[K] %d klient nie zakonczyl swojej pracy!\n", i+1);
+            exit(EXIT_FAILURE);
+        }
+        /*else{
+            printf("[K] %d Klient zakonczyl swoja prace\n", i+1);
+        }*/
+    }
+    semafor_p(semidK, 14); // klienci sie koncza gdy napewno czas sie zakonczy
+    printf("Wszyscy klienci opuscili salon, Program tworzacy klientow sie zakonczyl\n");
+    semctl(semidK, 15, SETVAL, F);
+    semafor_v(semidK, 13);
     return 0;
 }
 
@@ -130,7 +161,7 @@ int main(){
 void semafor_p(int semid, int semnum) {
     struct sembuf operation = {semnum, -1, 0};
     if (semop(semid, &operation, 1) == -1) {
-        perror("Nie mozna opuscic semafora");
+        perror("[K] Nie mozna opuscic semafora");
         exit(EXIT_FAILURE);
     }
 }
