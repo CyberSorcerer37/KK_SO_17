@@ -12,6 +12,9 @@ extern int koniec; //Zmienna oznaczajaca czy czas pracy salonu sie zakonczyl
 extern int zajety; //Zmienna oznaczajaca czy dany proces moze sie zakonczyc od razu, jesli zajety = 1, musi on najpierw skonczyc swoja prace
 extern int semid; //Identyfikator semaforow
 extern int pamiec; //Identyfikator pamieci wspoldzielonej
+extern key_t key; //Klucz do semaforow / pamieci wspoldzielonej itp
+extern int fd;
+extern int i;
 
 typedef struct {
     pid_t pgrp1;

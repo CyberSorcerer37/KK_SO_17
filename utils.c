@@ -10,6 +10,7 @@
 #include <sys/shm.h> 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include "utils.h"
 
 int F = 5;
@@ -23,7 +24,10 @@ int koniec = 0;
 int zajety = 0;
 int pamiec;
 int semid;
-SharedData *shared; // Definicja zmiennej globalnej
+SharedData *shared; 
+key_t key;
+int fd;
+int i;
 
 void semafor_p(int semid, int semnum) {
     struct sembuf operation = {semnum, -1, 0};
@@ -56,7 +60,7 @@ void semafor_ve(int semid, int semnum) {
 }
 
 void przygotuj_pamiec() {
-    pamiec = shmget(101, sizeof(SharedData), 0600 | IPC_CREAT);
+    pamiec = shmget(key, sizeof(SharedData), 0600 | IPC_CREAT);
     if (pamiec == -1) {
         perror("Problemy z utworzeniem pamieci dzielonej");
         exit(EXIT_FAILURE);
