@@ -16,7 +16,9 @@
 int main(){
     char buffer[32];
     pid_t pid_array[F];
-    pid_t grupaF;
+    pid_t grupaF, grupaK;
+    time_t czas_start;
+    int czas_pracy;
 
     pid_t OriginPID = getpid(); //Pobranie PIDu
     printf("[M] Wlaczono program Menadzer/Kasjer o PID: %d\n", OriginPID);
@@ -34,10 +36,11 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    semafor_p(semid, 5);
+    semafor_p(semid, 9);
     przygotuj_pamiec();
     printf("[M] odczytuje grupy klientow i fryzjerow\n");
     grupaF = shared->pgrp1;
+    grupaK = shared->pgrp2;
     shmdt(shared);
 
     
@@ -86,8 +89,23 @@ int main(){
             printf("[M] PID[%d]: %d\n", i, pid_array[i]);
         }
         semafor_v(semid, 4);
-        printf("[M] Wysylam sygnal do fryzjerow ze koniec pracy, pid grupy: %d\n", grupaF);
+        while(semctl(semid, 13, GETVAL)!=K){
+            sleep(1);
+        }
+        
+        czas_pracy = (Tk-Tp)*jednostka; //ustala czas pracy
+        printf("Fryzjerzy i klienci gotowi! salon zaczynie prace za 3s i bedzie pracowal: %d s!\n", czas_pracy);
+        sleep(3);
+        czas_start = time(NULL);
+        semctl(semid, 14, SETVAL, K);
+
+        while(((time(NULL) - czas_start) < czas_pracy)){
+            sleep(1);
+        }
+        
+        printf("[M] Czas pracy salonu dobiega konca, wysylam sygnal! pid grupy fryzjerw: %d, pid grupy klientow: %d\n", grupaF, grupaK);
         kill(-grupaF, SIGUSR1);
+        kill(-grupaK, SIGUSR1);
         semafor_p(semid, 6);
         printf("[M] Menadzer zakonczyl prace\n");
     

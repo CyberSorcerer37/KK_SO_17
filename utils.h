@@ -4,6 +4,7 @@
 extern int F; //Liczba fryzjerow
 extern int N; //Liczba Foteli w salonie
 extern int P; //Liczba miejsc w poczekalni
+extern int K; //Liczba klientow
 extern int Tp; //Godzina otwarcia
 extern int Tk; //Godzina zamkniecia
 extern int jednostka; //Ile trwa 1 godzina, dla jednostka = 1, godzina trwa 1 sekunde
@@ -23,6 +24,7 @@ typedef struct {
 
 extern SharedData *shared; // Deklaracja zmiennej globalnej
 
+int losowa_liczba(int a, int b);
 void semafor_p(int semid, int semnum);
 void semafor_v(int semid, int semnum);
 int semafor_pe(int semid, int semnum);

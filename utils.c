@@ -13,12 +13,13 @@
 #include <sys/stat.h>
 #include "utils.h"
 
-int F = 5;
-int N = 4;
-int P = 5;
-int Tp = 8;
-int Tk = 16;
-int jednostka = 2;
+int F = 5; //Fryzjerzy
+int N = 4; //Fotele
+int K = 50; //Liczba klientow
+int P = 5; //Liczba miejsc w poczekalni
+int Tp = 8; //Godzina otwarcia
+int Tk = 16; //Godzina zamkniecia
+int jednostka = 2; //Czas trwania jednej godziny w sekundach
 char *fifo_path = "fryzjerzy_fifo";
 int koniec = 0;
 int zajety = 0;
@@ -28,6 +29,11 @@ SharedData *shared;
 key_t key;
 int fd;
 int i;
+
+
+int losowa_liczba(int a, int b) {
+    return a + rand() % (b - a + 1);
+}
 
 void semafor_p(int semid, int semnum) {
     struct sembuf operation = {semnum, -1, 0};
