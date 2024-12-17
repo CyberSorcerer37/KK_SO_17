@@ -151,6 +151,7 @@ int main(){
         }
     }
     semafor_p(semid,12); //Czeka az wszyscy klienci opuszcza salon
+
     printf("[F] Wszyscy fryzjerzy zakonczyli prace!\n");
     semafor_v(semid, 6);
 

@@ -83,31 +83,42 @@ int main(){
 
         }
 
-        // Wyświetlenie odczytanych PID-ów
-        printf("[M] Odczytane PID-y:\n");
-        for (int i = 0; i < F; i++) {
-            printf("[M] PID[%d]: %d\n", i, pid_array[i]);
-        }
-        semafor_v(semid, 4);
-        while(semctl(semid, 13, GETVAL)!=K){
-            sleep(1);
-        }
+    // Wyświetlenie odczytanych PID-ów
+    printf("[M] Odczytane PID-y:\n");
+    for (int i = 0; i < F; i++) {
+        printf("[M] PID[%d]: %d\n", i, pid_array[i]);
+    }
+    semafor_v(semid, 4);
+    while(semctl(semid, 13, GETVAL)!=K){
+        sleep(1);
+    }
         
-        czas_pracy = (Tk-Tp)*jednostka; //ustala czas pracy
-        printf("Fryzjerzy i klienci gotowi! salon zaczynie prace za 3s i bedzie pracowal: %d s!\n", czas_pracy);
-        sleep(3);
-        czas_start = time(NULL);
-        semctl(semid, 14, SETVAL, K);
+    czas_pracy = (Tk-Tp)*jednostka; //ustala czas pracy
+    printf("Fryzjerzy i klienci gotowi! salon zaczynie prace za 3s i bedzie pracowal: %d s!\n", czas_pracy);
+    sleep(3);
+    czas_start = time(NULL);
+    semctl(semid, 14, SETVAL, K);
 
-        while(((time(NULL) - czas_start) < czas_pracy)){
-            sleep(1);
-        }
+    while(((time(NULL) - czas_start) < czas_pracy)){
+        sleep(1);
+    }
         
-        printf("[M] Czas pracy salonu dobiega konca, wysylam sygnal! pid grupy fryzjerw: %d, pid grupy klientow: %d\n", grupaF, grupaK);
-        kill(-grupaF, SIGUSR1);
-        kill(-grupaK, SIGUSR1);
-        semafor_p(semid, 6);
-        printf("[M] Menadzer zakonczyl prace\n");
+    printf("[M] Czas pracy salonu dobiega konca, wysylam sygnal! pid grupy fryzjerw: %d, pid grupy klientow: %d\n", grupaF, grupaK);
+    kill(-grupaF, SIGUSR1);
+    kill(-grupaK, SIGUSR1);
+    semafor_p(semid, 6);
+
+    printf("[M] Usuwam pamiec wspoldzielona oraz zbior semaforow!\n");
+
+    if (shmctl(pamiec, IPC_RMID, NULL) == -1) {
+        perror("Nie udalo sie usunac pamieci wspoldzielonej");
+    }
+
+    if (semctl(semid, 0, IPC_RMID) == -1) {
+        perror("Nie udalo sie usunac zbioru semaforow");
+    }
+
+    printf("[M] Menadzer zakonczyl prace\n");
     
     return 0;
 
